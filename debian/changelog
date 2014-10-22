@@ -1,3 +1,15 @@
+partman-zfs (43.ZOL2) wheezy; urgency=medium
+
+   * On Linux, let "zpool" create the partitions (if 'whole disk' selected).
+
+ -- Turbo Fredriksson <turbo@bayour.com>  Thu, 19 Mar 2015 13:55:49 +0100
+
+partman-zfs (43.ZOL1) wheezy; urgency=medium
+
+   * Put back ZoL stuff
+
+ -- Turbo Fredriksson <turbo@bayour.com>  Wed, 22 Oct 2014 21:07:51 +0200
+
 partman-zfs (43) unstable; urgency=medium
 
   * Do not enable zpool features by default, except those that are

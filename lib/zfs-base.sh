@@ -189,6 +189,16 @@ pv_prepare() {
 	local size parttype fs path
 
 	cd "$dev"
+
+	# We don't want to partition the disk from here
+	# on Linux - we prefer to use the whole disk (if
+	# so specified). Let 'zpool create' do the partitioning
+	# instead.
+	if [ "$(udpkg --print-os)" = linux ]; then
+		echo "$(cat device)"
+		return 1
+	fi
+
 	open_dialog PARTITION_INFO "$id"
 	read_line x1 id size freetype fs path x7
 	close_dialog
@@ -286,7 +296,11 @@ fs_create() {
     local fs=$1
     local code
 
-    zfs create -o mountpoint=none $fs ; code=$?
+    # Make sure $fs isn't already created/mounted/choosen
+    # For example, having /boot on separate extX/xfs/etc.
+    check_mountpoint $fs && return 0
+
+    zfs create -p -o mountpoint=none $fs ; code=$?
     if [ "$code" -ne 0 ]; then
 	logger -t partman-zfs "ERROR: create $fs failed"
     else
@@ -382,25 +396,31 @@ vg_lock_pvs() {
 
 # Create a volume group
 vg_create() {
-	local vg pv
+	local vg pv vers
 	vg="$1"
 	shift
 
-	# Feature explicitly supported by grub-pc >> 2.02~, see
-	# spa_feature_names[] in grub-core/fs/zfs/zfs.c
-	features="-o feature@lz4_compress=enabled"
+	local features
+	if [ "$(udpkg --print-os)" != linux ]; then
+		# Feature explicitly supported by grub-pc >> 2.02~, see
+		# spa_feature_names[] in grub-core/fs/zfs/zfs.c
+		features="-d -o feature@lz4_compress=enabled"
 
-	# Read-only compatible features, according to zpool-features(7)
-	for feature in async_destroy empty_bpobj spacemap_histogram
-	do
-		features="$features -o feature@${feature}=enabled"
-	done
+		# Read-only compatible features, according to zpool-features(7)
+		for feature in async_destroy empty_bpobj spacemap_histogram
+		do
+			features="$features -o feature@${feature}=enabled"
+		done
+	fi
 
-	log-output -t partman-zfs zpool create -f -m none -d $features -o altroot=/target "$vg" $* || return 1
+	log-output -t partman-zfs zpool create -f -m none $features -o altroot=/target "$vg" $* || return 1
 
-	# Some ZFS versions don't create cachefile when "-o altroot" is used.
-	# Request it explicitly.
-	log-output -t partman-zfs zpool set cachefile=/boot/zfs/zpool.cache "$vg" || return 1
+	if [ "$(udpkg --print-os)" != linux ]; then
+		# Some ZFS versions don't create cachefile when "-o altroot" is used.
+		# Request it explicitly.
+		# Recommendation is NOT to use cache file on Linux.
+		log-output -t partman-zfs zpool set cachefile=/boot/zfs/zpool.cache "$vg" || return 1
+	fi
 
 	return 0
 }
@@ -643,18 +663,13 @@ create_bootfs() {
 	local fs=$2
 	local code subfs
 
-	if ! fs_check_exists $pool/ROOT; then
-	    if ! fs_create $pool/ROOT; then
-		# ERROR: Can't create FS! Why not!?
-		return
-	    fi
-	fi
-
 	if ! fs_check_exists $pool/ROOT/$fs; then
-	    if ! fs_create $pool/ROOT/$fs; then
-		# ERROR: Can't create FS! Why not!?
-		return
-	    fi
+	    for subfs in boot home var usr; do
+		if fs_create $pool/ROOT/$fs/$subfs; then
+		    log-output -t partman-zfs zfs set mountpoint=legacy $pool/ROOT/$fs/$subfs
+		fi
+	    done
+
 	    zfs set mountpoint=/ $pool/ROOT/$fs
 
 	    zpool set bootfs=$pool/ROOT/$fs $pool
@@ -664,12 +679,6 @@ create_bootfs() {
 	    else
 		logger -t partman-zfs "set bootfs=$pool/ROOT/$fs on $pool FAILED"
 	    fi
-
-	    for subfs in boot home var usr; do
-		if fs_create $pool/ROOT/$fs/$subfs; then
-		    log-output -t partman-zfs zfs set mountpoint=legacy $pool/ROOT/$fs/$subfs
-		fi
-	    done
 	else
 	    # FS already exists - use it as root fs
 	    zpool set bootfs=$pool/ROOT/$fs $pool
@@ -757,4 +766,35 @@ create_partition () {
 
 	mkdir -p $id
 	echo $id
+}
+
+check_mountpoint () {
+    mntpt=$1
+    local dev partitions num id size type fs path name fs
+
+    for dev in /var/lib/partman/devices/*; do
+	[ -d "$dev" ] || continue
+	cd $dev
+
+	partitions=
+	open_dialog PARTITIONS
+	while { read_line num id size type fs path name; [ "$id" ]; }; do
+		if [ "$fs" != free ]; then
+			partitions="$partitions $id"
+		fi
+	done
+	close_dialog
+
+	# Check if device/partitions are used for ZFS (PV)
+	for id in $partitions; do
+		[ -f $id/mountpoint ] && mountpoint=$(cat $id/mountpoint)
+		[ -z "$mountpoint" ] && continue
+
+		if echo "$mntpt" | grep -qE "$mountpoint$"; then
+		    return 0
+		fi
+	done
+    done
+
+    return 1
 }
