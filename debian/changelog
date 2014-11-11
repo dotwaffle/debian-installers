@@ -1,3 +1,9 @@
+grub-installer (1.101.ZOL1) unstable; urgency=medium
+
+  * If finding multiple [br]ootfs, only use the first one.
+
+ -- Turbo Fredriksson <turbo@bayour.com>  Tue, 11 Nov 2014 16:07:06 +0100
+
 grub-installer (1.101) unstable; urgency=medium
 
   [ Steve McIntyre ]
