@@ -1,3 +1,10 @@
+partman-zfs (43.ZOL3) wheezy; urgency=medium
+
+   * All pv_prepare() with a third option - the real path to device.
+     Use this (on Linux) to see if we want to use full device or partition..
+
+ -- Turbo Fredriksson <turbo@bayour.com>  Wed, 25 Mar 2015 19:14:28 +0100
+
 partman-zfs (43.ZOL2) wheezy; urgency=medium
 
    * On Linux, let "zpool" create the partitions (if 'whole disk' selected).

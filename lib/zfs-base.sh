@@ -186,6 +186,7 @@ pv_list_free() {
 pv_prepare() {
 	local dev="$1"
 	local id="$2"
+	local real_dev="$3"
 	local size parttype fs path
 
 	cd "$dev"
@@ -194,7 +195,9 @@ pv_prepare() {
 	# on Linux - we prefer to use the whole disk (if
 	# so specified). Let 'zpool create' do the partitioning
 	# instead.
-	if [ "$(udpkg --print-os)" = linux ]; then
+	tmp=$(echo "$real_dev" | sed 's/[0-9]$//')
+	if [ "$(udpkg --print-os)" = "linux" -a "$tmp" = "$real_dev" ]
+	then
 		echo "$(cat device)"
 		return 1
 	fi

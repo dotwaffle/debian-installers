@@ -223,7 +223,7 @@ do_vg_create() {
 			if [ "${line%%$TAB*}" = "$pv" ]; then
 				local devid="${line#*$TAB}"
 				local path
-				if path="$(pv_prepare "${devid%//*}" "${devid#*//}")"; then
+				if path="$(pv_prepare "${devid%//*}" "${devid#*//}" "$pv")"; then
 					need_commit=true
 				fi
 				newpvs="${newpvs:+$newpvs }$path"
