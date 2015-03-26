@@ -668,10 +668,22 @@ create_bootfs() {
 
 	if ! fs_check_exists $pool/ROOT/$fs; then
 	    for subfs in boot home var usr; do
+		# We don't want to create the home dataset here on Linux.
+		[ "$(udpkg --print-os)" = "linux" -a "$subfs" = "home" ] && continue
 		if fs_create $pool/ROOT/$fs/$subfs; then
 		    log-output -t partman-zfs zfs set mountpoint=legacy $pool/ROOT/$fs/$subfs
 		fi
 	    done
+
+	    if [ "$(udpkg --print-os)" ]; then
+		# On linux, /home isn't really part of the OS, so we put it in the
+		# root of the pool to avoid getting an old version of it if/when
+		# we boot from a snapshot (which recursivly mounts a clone of all
+		# snapshots).
+		if fs_create $pool/home; then
+		    log-output -t partman-zfs zfs set mountpoint=/home $pool/home
+		fi
+	    fi
 
 	    zfs set mountpoint=/ $pool/ROOT/$fs
 

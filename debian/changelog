@@ -1,3 +1,11 @@
+partman-zfs (43.ZOL4) wheezy; urgency=medium
+
+   * Create /home at the top of the pool instead of below the root fs.
+     Simplifies recursive snapshotting (/home should not be used when
+     booting from a snapshot).
+
+ -- Turbo Fredriksson <turbo@bayour.com>  Thu, 26 Mar 2015 04:04:57 +0100
+
 partman-zfs (43.ZOL3) wheezy; urgency=medium
 
    * All pv_prepare() with a third option - the real path to device.
